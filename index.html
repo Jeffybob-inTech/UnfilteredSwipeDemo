@@ -97,20 +97,21 @@ function move(e){
   const dx = p.clientX - startX;
   currentX = p.clientX;
 
-  const midX = getMidX();
+  // 🔥 direction-based switching
+  let newActive = null;
+  
+  if (dx < -15) newActive = "top";     // swipe left
+  if (dx > 15) newActive = "bottom";  // swipe right
 
-  // 🔥 determine active side based on screen position
-  const newActive = p.clientX < midX ? "top" : "bottom";
-
-  // if changed → update drag face
-  if(newActive !== active){
+  // update active dynamically
+  if(newActive && newActive !== active){
     active = newActive;
     setupDrag();
   }
 
   if(!active) return;
 
-  // apply transform
+  // movement + rotation
   const rotation = dx * 0.05;
   drag.style.transform = `translateX(${dx}px) rotate(${rotation}deg)`;
 }
@@ -123,15 +124,15 @@ function end(){
   if(!dragging) return;
   dragging = false;
 
+  const dx = currentX - startX;
   const threshold = 100;
 
-  if(active && Math.abs(currentX - startX) > threshold){
-    commit(active === "top" ? -1 : 1);
+  if(active && Math.abs(dx) > threshold){
+    commit(dx < 0 ? -1 : 1);
   } else {
     reset();
   }
 }
-
 // ===== SETUP =====
 function setupDrag(){
   const source = active === "top" ? topFace : bottomFace;
@@ -156,19 +157,19 @@ function reset(){
     active = null;
   }, 250);
 }
-  function commit(direction){
-  // 🔥 subtle shrink BEFORE launch
+function commit(direction){
+  // subtle shrink
   drag.style.transition = "transform 0.12s ease";
-  if (navigator.vibrate) navigator.vibrate(10);
   drag.style.transform += " scale(0.9)";
 
-  // then launch
   setTimeout(() => {
     drag.style.transition = "transform 0.25s ease, opacity 0.25s";
     drag.style.transform =
       `translateX(${direction * 1000}px) rotate(${direction * 20}deg) scale(0.85)`;
     drag.style.opacity = "0";
   }, 80);
+
+  if (navigator.vibrate) navigator.vibrate(10);
 
   console.log("VOTED:", active);
 
