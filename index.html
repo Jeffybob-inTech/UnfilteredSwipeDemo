@@ -86,7 +86,10 @@ function start(e){
 // ===== MOVE =====
 window.addEventListener("mousemove", move);
 window.addEventListener("touchmove", move);
-
+function getMidX() {
+  const rect = document.querySelector(".container").getBoundingClientRect();
+  return rect.left + rect.width / 2;
+}
 function move(e){
   if(!dragging) return;
 
@@ -94,7 +97,7 @@ function move(e){
   const dx = p.clientX - startX;
   currentX = p.clientX;
 
-  const midX = window.innerWidth / 2;
+  const midX = getMidX();
 
   // 🔥 determine active side based on screen position
   const newActive = p.clientX < midX ? "top" : "bottom";
@@ -139,17 +142,7 @@ function setupDrag(){
 }
 
 // ===== COMMIT =====
-function commit(dx){
-  const direction = dx < 0 ? -1 : 1;
 
-  drag.style.transition = "transform 0.25s ease, opacity 0.25s";
-  drag.style.transform = `translateX(${direction * 1000}px) rotate(${direction * 20}deg)`;
-  drag.style.opacity = "0";
-
-  console.log("VOTED:", active);
-
-  setTimeout(reset, 250);
-}
 
 // ===== RESET =====
 function reset(){
@@ -162,6 +155,24 @@ function reset(){
     drag.style.transition = "none";
     active = null;
   }, 250);
+}
+  function commit(direction){
+  // 🔥 subtle shrink BEFORE launch
+  drag.style.transition = "transform 0.12s ease";
+  if (navigator.vibrate) navigator.vibrate(10);
+  drag.style.transform += " scale(0.9)";
+
+  // then launch
+  setTimeout(() => {
+    drag.style.transition = "transform 0.25s ease, opacity 0.25s";
+    drag.style.transform =
+      `translateX(${direction * 1000}px) rotate(${direction * 20}deg) scale(0.85)`;
+    drag.style.opacity = "0";
+  }, 80);
+
+  console.log("VOTED:", active);
+
+  setTimeout(reset, 250);
 }
 </script>
 
