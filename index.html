@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Unfiltered Swipe Demo</title>
+
+<style>
+body {
+  margin: 0;
+  background: #0a0a0f;
+  font-family: Arial, sans-serif;
+  overflow: hidden;
+  color: white;
+}
+
+.voteScreen {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+}
+
+/* Faces */
+.face {
+  position: absolute;
+  width: 100%;
+  height: 45%;
+  overflow: hidden;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.topFace { top: 0; }
+.bottomFace { bottom: 0; }
+
+.face img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  pointer-events: none;
+}
+
+/* Names */
+.nameTag {
+  position: absolute;
+  bottom: 12px;
+  left: 16px;
+  font-size: 20px;
+  font-weight: bold;
+}
+
+/* Category */
+.categoryWrapper {
+  position: absolute;
+  top: 45%;
+  width: 100%;
+  text-align: center;
+}
+
+#categoryText {
+  font-size: 26px;
+  font-weight: bold;
+  background: linear-gradient(90deg, #8b5cff, #4da6ff);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Highlight */
+.active {
+  box-shadow: 0 0 40px rgba(139,92,255,0.6);
+  transform: scale(1.03);
+}
+</style>
+</head>
+
+<body>
+
+<main class="voteScreen">
+
+  <div class="face topFace" id="topFace">
+    <img id="topImg" src="https://picsum.photos/600/400?1">
+    <div class="nameTag" id="topName">Jake</div>
+  </div>
+
+  <div class="categoryWrapper">
+    <span id="categoryText">Most Likely To Survive Zombie Apocalypse</span>
+  </div>
+
+  <div class="face bottomFace" id="bottomFace">
+    <img id="bottomImg" src="https://picsum.photos/600/400?2">
+    <div class="nameTag" id="bottomName">Sam</div>
+  </div>
+
+</main>
+
+<script>
+const topFace = document.getElementById("topFace");
+const bottomFace = document.getElementById("bottomFace");
+
+let startX = 0;
+let startY = 0;
+let dragging = false;
+let activeTarget = null;
+
+// ===== START =====
+window.addEventListener("mousedown", start);
+window.addEventListener("touchstart", start);
+
+function start(e) {
+  dragging = true;
+  const p = e.touches ? e.touches[0] : e;
+  startX = p.clientX;
+  startY = p.clientY;
+  activeTarget = null;
+}
+
+// ===== MOVE =====
+window.addEventListener("mousemove", move);
+window.addEventListener("touchmove", move);
+
+function move(e) {
+  if (!dragging) return;
+
+  const p = e.touches ? e.touches[0] : e;
+  const dx = p.clientX - startX;
+  const dy = p.clientY - startY;
+
+  // Detect direction ONCE
+  if (!activeTarget) {
+    if (dx < -50 && dy < -50) activeTarget = "top";
+    if (dx > 50 && dy > 50) activeTarget = "bottom";
+  }
+
+  highlight();
+
+  if (activeTarget === "top") {
+    followCursor(topFace, p);
+  }
+
+  if (activeTarget === "bottom") {
+    followCursor(bottomFace, p);
+  }
+}
+
+// ===== END =====
+window.addEventListener("mouseup", end);
+window.addEventListener("touchend", end);
+
+function end(e) {
+  if (!dragging) return;
+  dragging = false;
+
+  const p = e.changedTouches ? e.changedTouches[0] : e;
+
+  if (!activeTarget) {
+    resetFaces();
+    return;
+  }
+
+  const el = activeTarget === "top" ? topFace : bottomFace;
+
+  collapseToPoint(el, p);
+
+  console.log("VOTED:", activeTarget);
+
+  setTimeout(() => {
+    resetFaces();
+    loadNext();
+  }, 250);
+}
+
+// ===== EFFECTS =====
+
+function followCursor(el, p) {
+  const rect = el.getBoundingClientRect();
+  const cx = rect.left + rect.width / 2;
+  const cy = rect.top + rect.height / 2;
+
+  const dx = p.clientX - cx;
+  const dy = p.clientY - cy;
+
+  el.style.transition = "none";
+  el.style.transform = `translate(${dx * 0.25}px, ${dy * 0.25}px) scale(0.96)`;
+}
+
+function collapseToPoint(el, p) {
+  const rect = el.getBoundingClientRect();
+  const cx = rect.left + rect.width / 2;
+  const cy = rect.top + rect.height / 2;
+
+  const dx = p.clientX - cx;
+  const dy = p.clientY - cy;
+
+  el.style.transition = "transform 0.2s ease, opacity 0.2s ease";
+  el.style.transform = `translate(${dx}px, ${dy}px) scale(0.1)`;
+  el.style.opacity = "0";
+}
+
+function highlight() {
+  topFace.classList.remove("active");
+  bottomFace.classList.remove("active");
+
+  if (activeTarget === "top") topFace.classList.add("active");
+  if (activeTarget === "bottom") bottomFace.classList.add("active");
+}
+
+function resetFaces() {
+  [topFace, bottomFace].forEach(el => {
+    el.style.transition = "transform 0.2s ease, opacity 0.2s ease";
+    el.style.transform = "translate(0,0) scale(1)";
+    el.style.opacity = "1";
+    el.classList.remove("active");
+  });
+}
+
+// ===== MOCK NEXT =====
+function loadNext() {
+  const names = [["Alex","Chris"],["Jordan","Taylor"],["Ryan","Casey"]];
+  const i = Math.floor(Math.random() * names.length);
+
+  document.getElementById("topName").innerText = names[i][0];
+  document.getElementById("bottomName").innerText = names[i][1];
+
+  document.getElementById("topImg").src = `https://picsum.photos/600/400?${Math.random()}`;
+  document.getElementById("bottomImg").src = `https://picsum.photos/600/400?${Math.random()}`;
+}
+</script>
+
+</body>
+</html>
