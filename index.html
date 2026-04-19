@@ -94,9 +94,14 @@ function move(e){
   const dx = p.clientX - startX;
   currentX = p.clientX;
 
-  // decide direction
-  if(!active && Math.abs(dx) > 20){
-    active = dx < 0 ? "top" : "bottom";
+  const midX = window.innerWidth / 2;
+
+  // 🔥 determine active side based on screen position
+  const newActive = p.clientX < midX ? "top" : "bottom";
+
+  // if changed → update drag face
+  if(newActive !== active){
+    active = newActive;
     setupDrag();
   }
 
@@ -115,12 +120,10 @@ function end(){
   if(!dragging) return;
   dragging = false;
 
-  const dx = currentX - startX;
-
   const threshold = 100;
 
-  if(active && Math.abs(dx) > threshold){
-    commit(dx);
+  if(active && Math.abs(currentX - startX) > threshold){
+    commit(active === "top" ? -1 : 1);
   } else {
     reset();
   }
