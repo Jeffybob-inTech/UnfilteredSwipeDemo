@@ -73,7 +73,11 @@ let currentX = 0;
 let active = null;
 const img1 = new Image();
 const img2 = new Image();
-
+const pairs = [
+    ["https://picsum.photos/600/400?1", "https://picsum.photos/600/400?2"],
+    ["https://picsum.photos/600/400?3", "https://picsum.photos/600/400?4"],
+    ["https://picsum.photos/600/400?5", "https://picsum.photos/600/400?6"]
+  ];
 img1.src = pairs[i][0];
 img2.src = pairs[i][1];
 
@@ -129,11 +133,6 @@ function move(e){
 window.addEventListener("mouseup", end);
 window.addEventListener("touchend", end);
 function next(){
-  const pairs = [
-    ["https://picsum.photos/600/400?1", "https://picsum.photos/600/400?2"],
-    ["https://picsum.photos/600/400?3", "https://picsum.photos/600/400?4"],
-    ["https://picsum.photos/600/400?5", "https://picsum.photos/600/400?6"]
-  ];
 
   const i = Math.floor(Math.random() * pairs.length);
 
