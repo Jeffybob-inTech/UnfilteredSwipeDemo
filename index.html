@@ -3,33 +3,34 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Unfiltered Swipe (Improved)</title>
+<title>Clean Swipe Vote</title>
 
 <style>
 body {
   margin: 0;
   background: #0a0a0f;
-  font-family: Arial, sans-serif;
   overflow: hidden;
+  font-family: Arial, sans-serif;
   color: white;
 }
 
-.voteScreen {
+.container {
   position: relative;
   width: 100vw;
   height: 100vh;
 }
 
+/* Faces */
 .face {
   position: absolute;
   width: 100%;
-  height: 45%;
+  height: 50%;
   overflow: hidden;
-  transition: transform 0.2s ease, opacity 0.2s ease;
+  transition: transform 0.25s ease, opacity 0.25s ease;
 }
 
-.topFace { top: 0; }
-.bottomFace { bottom: 0; }
+.top { top: 0; }
+.bottom { bottom: 0; }
 
 .face img {
   width: 100%;
@@ -38,7 +39,7 @@ body {
   pointer-events: none;
 }
 
-.nameTag {
+.name {
   position: absolute;
   bottom: 12px;
   left: 16px;
@@ -46,14 +47,13 @@ body {
   font-weight: bold;
 }
 
-.categoryWrapper {
+/* Prompt */
+.prompt {
   position: absolute;
-  top: 45%;
+  top: 50%;
+  transform: translateY(-50%);
   width: 100%;
   text-align: center;
-}
-
-#categoryText {
   font-size: 26px;
   font-weight: bold;
   background: linear-gradient(90deg, #8b5cff, #4da6ff);
@@ -61,52 +61,52 @@ body {
   -webkit-text-fill-color: transparent;
 }
 
-.active {
-  box-shadow: 0 0 50px rgba(139,92,255,0.7);
-  transform: scale(1.04);
+/* Highlight */
+.highlight {
+  box-shadow: 0 0 40px rgba(139,92,255,0.7);
+  transform: scale(1.05);
 }
 </style>
 </head>
 
 <body>
 
-<main class="voteScreen">
+<div class="container">
 
-  <div class="face topFace" id="topFace">
+  <div class="face top" id="topFace">
     <img id="topImg" src="https://picsum.photos/600/400?1">
-    <div class="nameTag" id="topName">Jake</div>
+    <div class="name" id="topName">Jake</div>
   </div>
 
-  <div class="categoryWrapper">
-    <span id="categoryText">Most Likely To Survive Zombie Apocalypse</span>
-  </div>
+  <div class="prompt">Most Likely To Survive Zombie Apocalypse</div>
 
-  <div class="face bottomFace" id="bottomFace">
+  <div class="face bottom" id="bottomFace">
     <img id="bottomImg" src="https://picsum.photos/600/400?2">
-    <div class="nameTag" id="bottomName">Sam</div>
+    <div class="name" id="bottomName">Sam</div>
   </div>
 
-</main>
+</div>
 
 <script>
 const topFace = document.getElementById("topFace");
 const bottomFace = document.getElementById("bottomFace");
 
-let startX = 0;
 let startY = 0;
+let currentY = 0;
 let dragging = false;
-let activeTarget = null;
+let velocity = 0;
+let lastTime = 0;
 
 // ===== START =====
 window.addEventListener("mousedown", start);
 window.addEventListener("touchstart", start);
 
 function start(e) {
-  dragging = true;
   const p = e.touches ? e.touches[0] : e;
-  startX = p.clientX;
   startY = p.clientY;
-  activeTarget = null;
+  currentY = startY;
+  dragging = true;
+  lastTime = Date.now();
 }
 
 // ===== MOVE =====
@@ -117,25 +117,24 @@ function move(e) {
   if (!dragging) return;
 
   const p = e.touches ? e.touches[0] : e;
-  const dx = p.clientX - startX;
+  const now = Date.now();
+
   const dy = p.clientY - startY;
+  velocity = (p.clientY - currentY) / (now - lastTime);
 
-  // Normalize direction (THIS is the key change)
-  const absX = Math.abs(dx);
-  const absY = Math.abs(dy);
+  currentY = p.clientY;
+  lastTime = now;
 
-  if (!activeTarget) {
-    if (absX > 40 || absY > 40) {
-      // Decide based on diagonal direction
-      if (dx < 0 && dy < 0) activeTarget = "top";
-      else if (dx > 0 && dy > 0) activeTarget = "bottom";
-    }
+  // Visual feedback
+  if (dy < 0) {
+    topFace.style.transform = `translateY(${dy * 0.2}px) scale(1.05)`;
+    topFace.classList.add("highlight");
+    bottomFace.classList.remove("highlight");
+  } else {
+    bottomFace.style.transform = `translateY(${dy * 0.2}px) scale(1.05)`;
+    bottomFace.classList.add("highlight");
+    topFace.classList.remove("highlight");
   }
-
-  highlight();
-
-  if (activeTarget === "top") followCursor(topFace, p);
-  if (activeTarget === "bottom") followCursor(bottomFace, p);
 }
 
 // ===== END =====
@@ -146,71 +145,48 @@ function end(e) {
   if (!dragging) return;
   dragging = false;
 
-  const p = e.changedTouches ? e.changedTouches[0] : e;
+  const dy = currentY - startY;
 
-  if (!activeTarget) {
-    resetFaces();
-    return;
+  const threshold = 80;
+  const velocityThreshold = 0.5;
+
+  if (dy < -threshold || velocity < -velocityThreshold) {
+    vote("top");
+  } else if (dy > threshold || velocity > velocityThreshold) {
+    vote("bottom");
+  } else {
+    reset();
   }
+}
 
-  const el = activeTarget === "top" ? topFace : bottomFace;
+// ===== VOTE =====
+function vote(target) {
+  const el = target === "top" ? topFace : bottomFace;
 
-  collapseToPoint(el, p);
+  el.style.transition = "transform 0.25s ease, opacity 0.25s ease";
+  el.style.transform = `translateY(${target === "top" ? -800 : 800}px) scale(1.1)`;
+  el.style.opacity = "0";
 
-  console.log("VOTED:", activeTarget);
+  console.log("VOTED:", target);
 
   setTimeout(() => {
-    resetFaces();
-    loadNext();
+    reset();
+    next();
   }, 250);
 }
 
-// ===== ANIMATION =====
-
-function followCursor(el, p) {
-  const rect = el.getBoundingClientRect();
-  const cx = rect.left + rect.width / 2;
-  const cy = rect.top + rect.height / 2;
-
-  const dx = p.clientX - cx;
-  const dy = p.clientY - cy;
-
-  el.style.transition = "none";
-  el.style.transform = `translate(${dx * 0.25}px, ${dy * 0.25}px) scale(0.96)`;
-}
-
-function collapseToPoint(el, p) {
-  const rect = el.getBoundingClientRect();
-  const cx = rect.left + rect.width / 2;
-  const cy = rect.top + rect.height / 2;
-
-  const dx = p.clientX - cx;
-  const dy = p.clientY - cy;
-
-  el.style.transition = "transform 0.2s ease, opacity 0.2s ease";
-  el.style.transform = `translate(${dx}px, ${dy}px) scale(0.1)`;
-  el.style.opacity = "0";
-}
-
-function highlight() {
-  topFace.classList.remove("active");
-  bottomFace.classList.remove("active");
-
-  if (activeTarget === "top") topFace.classList.add("active");
-  if (activeTarget === "bottom") bottomFace.classList.add("active");
-}
-
-function resetFaces() {
+// ===== RESET =====
+function reset() {
   [topFace, bottomFace].forEach(el => {
-    el.style.transition = "transform 0.2s ease, opacity 0.2s ease";
-    el.style.transform = "translate(0,0) scale(1)";
+    el.style.transition = "transform 0.25s ease, opacity 0.25s ease";
+    el.style.transform = "translateY(0) scale(1)";
     el.style.opacity = "1";
-    el.classList.remove("active");
+    el.classList.remove("highlight");
   });
 }
 
-// ===== MOCK NEXT =====
-function loadNext() {
+// ===== NEXT =====
+function next() {
   const names = [["Alex","Chris"],["Jordan","Taylor"],["Ryan","Casey"]];
   const i = Math.floor(Math.random() * names.length);
 
