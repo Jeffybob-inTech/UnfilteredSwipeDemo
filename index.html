@@ -71,7 +71,16 @@ let dragging = false;
 let startX = 0;
 let currentX = 0;
 let active = null;
+const img1 = new Image();
+const img2 = new Image();
 
+img1.src = pairs[i][0];
+img2.src = pairs[i][1];
+
+img1.onload = () => {
+  topFace.querySelector("img").src = img1.src;
+  bottomFace.querySelector("img").src = img2.src;
+};
 // ===== START =====
 window.addEventListener("mousedown", start);
 window.addEventListener("touchstart", start);
@@ -119,7 +128,18 @@ function move(e){
 // ===== END =====
 window.addEventListener("mouseup", end);
 window.addEventListener("touchend", end);
+function next(){
+  const pairs = [
+    ["https://picsum.photos/600/400?1", "https://picsum.photos/600/400?2"],
+    ["https://picsum.photos/600/400?3", "https://picsum.photos/600/400?4"],
+    ["https://picsum.photos/600/400?5", "https://picsum.photos/600/400?6"]
+  ];
 
+  const i = Math.floor(Math.random() * pairs.length);
+
+  topFace.querySelector("img").src = pairs[i][0];
+  bottomFace.querySelector("img").src = pairs[i][1];
+}
 function end(){
   if(!dragging) return;
   dragging = false;
@@ -158,7 +178,7 @@ function reset(){
   }, 250);
 }
 function commit(direction){
-  // subtle shrink
+  // shrink first
   drag.style.transition = "transform 0.12s ease";
   drag.style.transform += " scale(0.9)";
 
@@ -173,7 +193,11 @@ function commit(direction){
 
   console.log("VOTED:", active);
 
-  setTimeout(reset, 250);
+  // 🔥 load next BEFORE reset completes
+  setTimeout(() => {
+    next();
+    reset();
+  }, 250);
 }
 </script>
 
