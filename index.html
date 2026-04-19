@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Premium Swipe Vote</title>
+<title>Unfiltered Premium Swipe</title>
 
 <style>
 body {
@@ -20,14 +20,13 @@ body {
   height: 100vh;
 }
 
-/* Faces */
 .face {
   position: absolute;
   width: 100%;
   height: 50%;
   overflow: hidden;
-  will-change: transform;
   transition: transform 0.25s cubic-bezier(.22,1,.36,1), opacity 0.25s;
+  will-change: transform;
 }
 
 .top { top: 0; }
@@ -48,7 +47,6 @@ body {
   font-weight: 600;
 }
 
-/* Prompt */
 .prompt {
   position: absolute;
   top: 50%;
@@ -62,10 +60,9 @@ body {
   -webkit-text-fill-color: transparent;
 }
 
-/* Glow */
 .active {
   box-shadow: 0 0 60px rgba(139,92,255,0.8);
-  transform: scale(1.06);
+  transform: scale(1.05);
 }
 </style>
 </head>
@@ -92,12 +89,12 @@ body {
 const topFace = document.getElementById("topFace");
 const bottomFace = document.getElementById("bottomFace");
 
-let startY = 0;
-let currentY = 0;
+let startX = 0, startY = 0;
+let currentX = 0, currentY = 0;
 let dragging = false;
-let velocity = 0;
-let lastTime = 0;
 let locked = null;
+let velocityX = 0, velocityY = 0;
+let lastTime = 0;
 
 // ===== START =====
 window.addEventListener("mousedown", start);
@@ -105,11 +102,11 @@ window.addEventListener("touchstart", start);
 
 function start(e) {
   const p = e.touches ? e.touches[0] : e;
-  startY = p.clientY;
-  currentY = startY;
+  startX = currentX = p.clientX;
+  startY = currentY = p.clientY;
   dragging = true;
-  lastTime = performance.now();
   locked = null;
+  lastTime = performance.now();
 }
 
 // ===== MOVE =====
@@ -122,30 +119,37 @@ function move(e) {
   const p = e.touches ? e.touches[0] : e;
   const now = performance.now();
 
+  const dx = p.clientX - startX;
   const dy = p.clientY - startY;
 
-  velocity = (p.clientY - currentY) / (now - lastTime);
+  velocityX = (p.clientX - currentX) / (now - lastTime);
+  velocityY = (p.clientY - currentY) / (now - lastTime);
+
+  currentX = p.clientX;
   currentY = p.clientY;
   lastTime = now;
 
-  const abs = Math.abs(dy);
+  const absX = Math.abs(dx);
+  const absY = Math.abs(dy);
 
-  // Ease resistance (Apple feel)
-  const resistance = dy * (1 / (1 + abs / 300));
-
-  // Lock decision early
-  if (!locked && abs > 30) {
-    locked = dy < 0 ? "top" : "bottom";
+  // Lock decision
+  if (!locked && (absX > 30 || absY > 30)) {
+    if (dx < 0 || dy < 0) locked = "top";
+    if (dx > 0 || dy > 0) locked = "bottom";
   }
 
   highlight(locked);
 
+  // Subtle follow (not full drag)
+  const resistanceX = dx * 0.2;
+  const resistanceY = dy * 0.2;
+
   if (locked === "top") {
-    topFace.style.transform = `translateY(${resistance * 0.6}px) scale(1.06)`;
+    topFace.style.transform = `translate(${resistanceX}px, ${resistanceY}px) scale(1.05)`;
   }
 
   if (locked === "bottom") {
-    bottomFace.style.transform = `translateY(${resistance * 0.6}px) scale(1.06)`;
+    bottomFace.style.transform = `translate(${resistanceX}px, ${resistanceY}px) scale(1.05)`;
   }
 }
 
@@ -157,28 +161,40 @@ function end() {
   if (!dragging) return;
   dragging = false;
 
+  const dx = currentX - startX;
   const dy = currentY - startY;
 
-  const commitDistance = 120;
-  const commitVelocity = 0.6;
+  const strong =
+    Math.abs(dx) > 120 ||
+    Math.abs(dy) > 120 ||
+    Math.abs(velocityX) > 0.6 ||
+    Math.abs(velocityY) > 0.6;
 
-  if (locked === "top" && (dy < -commitDistance || velocity < -commitVelocity)) {
-    commit("top");
-  } else if (locked === "bottom" && (dy > commitDistance || velocity > commitVelocity)) {
-    commit("bottom");
-  } else {
+  if (!locked || !strong) {
     reset();
+    return;
   }
+
+  commit(locked, dx, dy);
 }
 
 // ===== COMMIT =====
-function commit(target) {
+function commit(target, dx, dy) {
   const el = target === "top" ? topFace : bottomFace;
 
-  const direction = target === "top" ? -1 : 1;
+  // Normalize direction
+  const mag = Math.sqrt(dx*dx + dy*dy);
+  const nx = dx / mag;
+  const ny = dy / mag;
 
-  el.style.transform = `translateY(${direction * 900}px) scale(1.1)`;
+  // Launch far in swipe direction
+  const distance = 1000;
+
+  el.style.transform = `translate(${nx * distance}px, ${ny * distance}px) scale(1.1)`;
   el.style.opacity = "0";
+
+  // 🔥 HAPTIC
+  if (navigator.vibrate) navigator.vibrate(15);
 
   console.log("VOTED:", target);
 
@@ -191,7 +207,7 @@ function commit(target) {
 // ===== RESET =====
 function reset() {
   [topFace, bottomFace].forEach(el => {
-    el.style.transform = "translateY(0) scale(1)";
+    el.style.transform = "translate(0,0) scale(1)";
     el.style.opacity = "1";
     el.classList.remove("active");
   });
