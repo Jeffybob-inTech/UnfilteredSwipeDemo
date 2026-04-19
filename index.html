@@ -3,22 +3,28 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Unfiltered Swipe (Real Version)</title>
+<title>Clean Swipe</title>
 
 <style>
 body {
   margin: 0;
   background: #0a0a0f;
   overflow: hidden;
-  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: Arial, sans-serif;
 }
 
+.container {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+}
+
+/* Faces */
 .face {
   position: absolute;
   width: 100%;
   height: 50%;
   overflow: hidden;
-  will-change: transform;
 }
 
 .top { top: 0; }
@@ -31,50 +37,40 @@ body {
   pointer-events: none;
 }
 
-/* active moving layer */
-.dragFace {
+/* Drag layer */
+.drag {
   position: absolute;
   width: 100%;
   height: 50%;
   pointer-events: none;
   will-change: transform;
 }
-
 </style>
 </head>
 
 <body>
 
-<div class="face top" id="topFace">
-  <img src="https://picsum.photos/600/400?1">
-</div>
+<div class="container">
+  <div class="face top" id="topFace">
+    <img src="https://picsum.photos/600/400?1">
+  </div>
 
-<div class="face bottom" id="bottomFace">
-  <img src="https://picsum.photos/600/400?2">
-</div>
+  <div class="face bottom" id="bottomFace">
+    <img src="https://picsum.photos/600/400?2">
+  </div>
 
-<!-- floating copy -->
-<div class="dragFace" id="dragFace"></div>
+  <div class="drag" id="drag"></div>
+</div>
 
 <script>
+const drag = document.getElementById("drag");
 const topFace = document.getElementById("topFace");
 const bottomFace = document.getElementById("bottomFace");
-const dragFace = document.getElementById("dragFace");
 
-let mouseDown = false;
-
+let dragging = false;
 let startX = 0;
 let currentX = 0;
-let velocityX = 0;
-let lastTime = 0;
-
-let active = null; // "top" or "bottom"
-
-// easing state
-let posX = 0;
-let posY = 0;
-let angle = 0;
-let scale = 1;
+let active = null;
 
 // ===== START =====
 window.addEventListener("mousedown", start);
@@ -82,12 +78,8 @@ window.addEventListener("touchstart", start);
 
 function start(e){
   const p = e.touches ? e.touches[0] : e;
-  mouseDown = true;
-
-  startX = p.clientX;
-  currentX = startX;
-  lastTime = performance.now();
-
+  dragging = true;
+  startX = currentX = p.clientX;
   active = null;
 }
 
@@ -96,37 +88,23 @@ window.addEventListener("mousemove", move);
 window.addEventListener("touchmove", move);
 
 function move(e){
-  if(!mouseDown) return;
+  if(!dragging) return;
 
   const p = e.touches ? e.touches[0] : e;
-  const now = performance.now();
-
   const dx = p.clientX - startX;
-
-  velocityX = (p.clientX - currentX)/(now - lastTime);
   currentX = p.clientX;
-  lastTime = now;
 
-  // decide vote direction
+  // decide direction
   if(!active && Math.abs(dx) > 20){
     active = dx < 0 ? "top" : "bottom";
-    setupDragFace();
+    setupDrag();
   }
 
   if(!active) return;
 
-  // easing follow
-  posX += (p.clientX - posX) * 0.15;
-  posY += (p.clientY - posY) * 0.15;
-
-  // rotation based on horizontal pull
-  angle += ((dx * 0.05) - angle) * 0.15;
-
-  // shrink slightly when further out
-  const dist = Math.abs(dx);
-  scale += ((1 - Math.min(0.2, dist/500)) - scale) * 0.15;
-
-  applyTransform();
+  // apply transform
+  const rotation = dx * 0.05;
+  drag.style.transform = `translateX(${dx}px) rotate(${rotation}deg)`;
 }
 
 // ===== END =====
@@ -134,87 +112,55 @@ window.addEventListener("mouseup", end);
 window.addEventListener("touchend", end);
 
 function end(){
-  if(!mouseDown) return;
-  mouseDown = false;
+  if(!dragging) return;
+  dragging = false;
 
   const dx = currentX - startX;
 
-  const commit =
-    Math.abs(dx) > 120 ||
-    Math.abs(velocityX) > 0.6;
+  const threshold = 100;
 
-  if(active && commit){
-    launch(dx);
+  if(active && Math.abs(dx) > threshold){
+    commit(dx);
   } else {
-    returnToOrigin();
+    reset();
   }
 }
 
-// ===== SETUP DRAG FACE =====
-function setupDragFace(){
+// ===== SETUP =====
+function setupDrag(){
   const source = active === "top" ? topFace : bottomFace;
 
-  dragFace.innerHTML = source.innerHTML;
-  dragFace.style.top = active === "top" ? "0" : "50%";
-  dragFace.style.left = "0";
+  drag.innerHTML = source.innerHTML;
+  drag.style.top = active === "top" ? "0" : "50%";
+  drag.style.left = "0";
 }
 
-// ===== APPLY =====
-function applyTransform(){
-  dragFace.style.transform =
-    `translate(${posX}px, ${posY}px) rotate(${angle}deg) scale(${scale})`;
-}
-
-// ===== LAUNCH =====
-function launch(dx){
+// ===== COMMIT =====
+function commit(dx){
   const direction = dx < 0 ? -1 : 1;
 
-  dragFace.style.transition = "transform 0.3s cubic-bezier(.22,1,.36,1), opacity 0.3s";
-
-  dragFace.style.transform =
-    `translate(${direction * 1000}px, ${posY}px) rotate(${angle * 2}deg) scale(0.8)`;
-
-  dragFace.style.opacity = "0";
-
-  // 🔥 haptic
-  if(navigator.vibrate) navigator.vibrate(15);
+  drag.style.transition = "transform 0.25s ease, opacity 0.25s";
+  drag.style.transform = `translateX(${direction * 1000}px) rotate(${direction * 20}deg)`;
+  drag.style.opacity = "0";
 
   console.log("VOTED:", active);
 
-  setTimeout(reset, 300);
+  setTimeout(reset, 250);
 }
 
 // ===== RESET =====
-function returnToOrigin(){
-  function animate(){
-    posX += (0 - posX)*0.15;
-    posY += (0 - posY)*0.15;
-    angle += (0 - angle)*0.15;
-    scale += (1 - scale)*0.15;
-
-    applyTransform();
-
-    if(Math.abs(posX) > 0.5 || Math.abs(posY) > 0.5){
-      requestAnimationFrame(animate);
-    } else {
-      reset();
-    }
-  }
-
-  requestAnimationFrame(animate);
-}
-
 function reset(){
-  dragFace.innerHTML = "";
-  dragFace.style.transition = "none";
+  drag.style.transition = "transform 0.25s ease, opacity 0.25s";
+  drag.style.transform = "translateX(0) rotate(0)";
+  drag.style.opacity = "1";
 
-  posX = 0;
-  posY = 0;
-  angle = 0;
-  scale = 1;
-  active = null;
+  setTimeout(() => {
+    drag.innerHTML = "";
+    drag.style.transition = "none";
+    active = null;
+  }, 250);
 }
-
 </script>
+
 </body>
 </html>
