@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Unfiltered Swipe Demo</title>
+<title>Unfiltered Swipe (Improved)</title>
 
 <style>
 body {
@@ -20,7 +20,6 @@ body {
   height: 100vh;
 }
 
-/* Faces */
 .face {
   position: absolute;
   width: 100%;
@@ -39,7 +38,6 @@ body {
   pointer-events: none;
 }
 
-/* Names */
 .nameTag {
   position: absolute;
   bottom: 12px;
@@ -48,7 +46,6 @@ body {
   font-weight: bold;
 }
 
-/* Category */
 .categoryWrapper {
   position: absolute;
   top: 45%;
@@ -64,10 +61,9 @@ body {
   -webkit-text-fill-color: transparent;
 }
 
-/* Highlight */
 .active {
-  box-shadow: 0 0 40px rgba(139,92,255,0.6);
-  transform: scale(1.03);
+  box-shadow: 0 0 50px rgba(139,92,255,0.7);
+  transform: scale(1.04);
 }
 </style>
 </head>
@@ -124,21 +120,22 @@ function move(e) {
   const dx = p.clientX - startX;
   const dy = p.clientY - startY;
 
-  // Detect direction ONCE
+  // Normalize direction (THIS is the key change)
+  const absX = Math.abs(dx);
+  const absY = Math.abs(dy);
+
   if (!activeTarget) {
-    if (dx < -50 && dy < -50) activeTarget = "top";
-    if (dx > 50 && dy > 50) activeTarget = "bottom";
+    if (absX > 40 || absY > 40) {
+      // Decide based on diagonal direction
+      if (dx < 0 && dy < 0) activeTarget = "top";
+      else if (dx > 0 && dy > 0) activeTarget = "bottom";
+    }
   }
 
   highlight();
 
-  if (activeTarget === "top") {
-    followCursor(topFace, p);
-  }
-
-  if (activeTarget === "bottom") {
-    followCursor(bottomFace, p);
-  }
+  if (activeTarget === "top") followCursor(topFace, p);
+  if (activeTarget === "bottom") followCursor(bottomFace, p);
 }
 
 // ===== END =====
@@ -168,7 +165,7 @@ function end(e) {
   }, 250);
 }
 
-// ===== EFFECTS =====
+// ===== ANIMATION =====
 
 function followCursor(el, p) {
   const rect = el.getBoundingClientRect();
