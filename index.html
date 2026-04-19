@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Unfiltered Premium Swipe</title>
+<title>Unfiltered Swipe (Real Version)</title>
 
 <style>
 body {
@@ -11,13 +11,6 @@ body {
   background: #0a0a0f;
   overflow: hidden;
   font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-  color: white;
-}
-
-.container {
-  position: relative;
-  width: 100vw;
-  height: 100vh;
 }
 
 .face {
@@ -25,7 +18,6 @@ body {
   width: 100%;
   height: 50%;
   overflow: hidden;
-  transition: transform 0.25s cubic-bezier(.22,1,.36,1), opacity 0.25s;
   will-change: transform;
 }
 
@@ -39,201 +31,190 @@ body {
   pointer-events: none;
 }
 
-.name {
+/* active moving layer */
+.dragFace {
   position: absolute;
-  bottom: 14px;
-  left: 18px;
-  font-size: 20px;
-  font-weight: 600;
-}
-
-.prompt {
-  position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
   width: 100%;
-  text-align: center;
-  font-size: 26px;
-  font-weight: 700;
-  background: linear-gradient(90deg, #8b5cff, #4da6ff);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+  height: 50%;
+  pointer-events: none;
+  will-change: transform;
 }
 
-.active {
-  box-shadow: 0 0 60px rgba(139,92,255,0.8);
-  transform: scale(1.05);
-}
 </style>
 </head>
 
 <body>
 
-<div class="container">
-
-  <div class="face top" id="topFace">
-    <img id="topImg" src="https://picsum.photos/600/400?1">
-    <div class="name" id="topName">Jake</div>
-  </div>
-
-  <div class="prompt">Most Likely To Survive Zombie Apocalypse</div>
-
-  <div class="face bottom" id="bottomFace">
-    <img id="bottomImg" src="https://picsum.photos/600/400?2">
-    <div class="name" id="bottomName">Sam</div>
-  </div>
-
+<div class="face top" id="topFace">
+  <img src="https://picsum.photos/600/400?1">
 </div>
+
+<div class="face bottom" id="bottomFace">
+  <img src="https://picsum.photos/600/400?2">
+</div>
+
+<!-- floating copy -->
+<div class="dragFace" id="dragFace"></div>
 
 <script>
 const topFace = document.getElementById("topFace");
 const bottomFace = document.getElementById("bottomFace");
+const dragFace = document.getElementById("dragFace");
 
-let startX = 0, startY = 0;
-let currentX = 0, currentY = 0;
-let dragging = false;
-let locked = null;
-let velocityX = 0, velocityY = 0;
+let mouseDown = false;
+
+let startX = 0;
+let currentX = 0;
+let velocityX = 0;
 let lastTime = 0;
+
+let active = null; // "top" or "bottom"
+
+// easing state
+let posX = 0;
+let posY = 0;
+let angle = 0;
+let scale = 1;
 
 // ===== START =====
 window.addEventListener("mousedown", start);
 window.addEventListener("touchstart", start);
 
-function start(e) {
+function start(e){
   const p = e.touches ? e.touches[0] : e;
-  startX = currentX = p.clientX;
-  startY = currentY = p.clientY;
-  dragging = true;
-  locked = null;
+  mouseDown = true;
+
+  startX = p.clientX;
+  currentX = startX;
   lastTime = performance.now();
+
+  active = null;
 }
 
 // ===== MOVE =====
 window.addEventListener("mousemove", move);
 window.addEventListener("touchmove", move);
 
-function move(e) {
-  if (!dragging) return;
+function move(e){
+  if(!mouseDown) return;
 
   const p = e.touches ? e.touches[0] : e;
   const now = performance.now();
 
   const dx = p.clientX - startX;
-  const dy = p.clientY - startY;
 
-  velocityX = (p.clientX - currentX) / (now - lastTime);
-  velocityY = (p.clientY - currentY) / (now - lastTime);
-
+  velocityX = (p.clientX - currentX)/(now - lastTime);
   currentX = p.clientX;
-  currentY = p.clientY;
   lastTime = now;
 
-  const absX = Math.abs(dx);
-  const absY = Math.abs(dy);
-
-  // Lock decision
-  if (!locked && (absX > 30 || absY > 30)) {
-    if (dx < 0 || dy < 0) locked = "top";
-    if (dx > 0 || dy > 0) locked = "bottom";
+  // decide vote direction
+  if(!active && Math.abs(dx) > 20){
+    active = dx < 0 ? "top" : "bottom";
+    setupDragFace();
   }
 
-  highlight(locked);
+  if(!active) return;
 
-  // Subtle follow (not full drag)
-  const resistanceX = dx * 0.2;
-  const resistanceY = dy * 0.2;
+  // easing follow
+  posX += (p.clientX - posX) * 0.15;
+  posY += (p.clientY - posY) * 0.15;
 
-  if (locked === "top") {
-    topFace.style.transform = `translate(${resistanceX}px, ${resistanceY}px) scale(1.05)`;
-  }
+  // rotation based on horizontal pull
+  angle += ((dx * 0.05) - angle) * 0.15;
 
-  if (locked === "bottom") {
-    bottomFace.style.transform = `translate(${resistanceX}px, ${resistanceY}px) scale(1.05)`;
-  }
+  // shrink slightly when further out
+  const dist = Math.abs(dx);
+  scale += ((1 - Math.min(0.2, dist/500)) - scale) * 0.15;
+
+  applyTransform();
 }
 
 // ===== END =====
 window.addEventListener("mouseup", end);
 window.addEventListener("touchend", end);
 
-function end() {
-  if (!dragging) return;
-  dragging = false;
+function end(){
+  if(!mouseDown) return;
+  mouseDown = false;
 
   const dx = currentX - startX;
-  const dy = currentY - startY;
 
-  const strong =
+  const commit =
     Math.abs(dx) > 120 ||
-    Math.abs(dy) > 120 ||
-    Math.abs(velocityX) > 0.6 ||
-    Math.abs(velocityY) > 0.6;
+    Math.abs(velocityX) > 0.6;
 
-  if (!locked || !strong) {
-    reset();
-    return;
+  if(active && commit){
+    launch(dx);
+  } else {
+    returnToOrigin();
   }
-
-  commit(locked, dx, dy);
 }
 
-// ===== COMMIT =====
-function commit(target, dx, dy) {
-  const el = target === "top" ? topFace : bottomFace;
+// ===== SETUP DRAG FACE =====
+function setupDragFace(){
+  const source = active === "top" ? topFace : bottomFace;
 
-  // Normalize direction
-  const mag = Math.sqrt(dx*dx + dy*dy);
-  const nx = dx / mag;
-  const ny = dy / mag;
+  dragFace.innerHTML = source.innerHTML;
+  dragFace.style.top = active === "top" ? "0" : "50%";
+  dragFace.style.left = "0";
+}
 
-  // Launch far in swipe direction
-  const distance = 1000;
+// ===== APPLY =====
+function applyTransform(){
+  dragFace.style.transform =
+    `translate(${posX}px, ${posY}px) rotate(${angle}deg) scale(${scale})`;
+}
 
-  el.style.transform = `translate(${nx * distance}px, ${ny * distance}px) scale(1.1)`;
-  el.style.opacity = "0";
+// ===== LAUNCH =====
+function launch(dx){
+  const direction = dx < 0 ? -1 : 1;
 
-  // 🔥 HAPTIC
-  if (navigator.vibrate) navigator.vibrate(15);
+  dragFace.style.transition = "transform 0.3s cubic-bezier(.22,1,.36,1), opacity 0.3s";
 
-  console.log("VOTED:", target);
+  dragFace.style.transform =
+    `translate(${direction * 1000}px, ${posY}px) rotate(${angle * 2}deg) scale(0.8)`;
 
-  setTimeout(() => {
-    reset();
-    next();
-  }, 250);
+  dragFace.style.opacity = "0";
+
+  // 🔥 haptic
+  if(navigator.vibrate) navigator.vibrate(15);
+
+  console.log("VOTED:", active);
+
+  setTimeout(reset, 300);
 }
 
 // ===== RESET =====
-function reset() {
-  [topFace, bottomFace].forEach(el => {
-    el.style.transform = "translate(0,0) scale(1)";
-    el.style.opacity = "1";
-    el.classList.remove("active");
-  });
+function returnToOrigin(){
+  function animate(){
+    posX += (0 - posX)*0.15;
+    posY += (0 - posY)*0.15;
+    angle += (0 - angle)*0.15;
+    scale += (1 - scale)*0.15;
+
+    applyTransform();
+
+    if(Math.abs(posX) > 0.5 || Math.abs(posY) > 0.5){
+      requestAnimationFrame(animate);
+    } else {
+      reset();
+    }
+  }
+
+  requestAnimationFrame(animate);
 }
 
-// ===== HIGHLIGHT =====
-function highlight(target) {
-  topFace.classList.remove("active");
-  bottomFace.classList.remove("active");
+function reset(){
+  dragFace.innerHTML = "";
+  dragFace.style.transition = "none";
 
-  if (target === "top") topFace.classList.add("active");
-  if (target === "bottom") bottomFace.classList.add("active");
+  posX = 0;
+  posY = 0;
+  angle = 0;
+  scale = 1;
+  active = null;
 }
 
-// ===== NEXT =====
-function next() {
-  const names = [["Alex","Chris"],["Jordan","Taylor"],["Ryan","Casey"]];
-  const i = Math.floor(Math.random() * names.length);
-
-  topName.innerText = names[i][0];
-  bottomName.innerText = names[i][1];
-
-  topImg.src = `https://picsum.photos/600/400?${Math.random()}`;
-  bottomImg.src = `https://picsum.photos/600/400?${Math.random()}`;
-}
 </script>
-
 </body>
 </html>
